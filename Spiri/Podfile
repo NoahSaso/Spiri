@@ -1,0 +1,36 @@
+# Uncomment the next line to define a global platform for your project
+# platform :ios, '9.0'
+
+target 'SiriIntent' do
+  # Comment the next line if you don't want to use dynamic frameworks
+  use_frameworks!
+
+  # Pods for SiriIntent
+  pod "Fuse"
+end
+
+target 'SiriIntentUI' do
+  # Comment the next line if you don't want to use dynamic frameworks
+  use_frameworks!
+
+  # Pods for SiriIntentUI
+
+end
+
+target 'Spiri' do
+  # Comment the next line if you don't want to use dynamic frameworks
+  use_frameworks!
+
+  # Pods for Spiri
+  pod "Fuse"
+
+  target 'SpiriTests' do
+    inherit! :search_paths
+    # Pods for testing
+  end
+
+  target 'SpiriUITests' do
+    # Pods for testing
+  end
+
+end

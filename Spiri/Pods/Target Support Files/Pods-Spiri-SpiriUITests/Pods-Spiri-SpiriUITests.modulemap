@@ -1,0 +1,6 @@
+framework module Pods_Spiri_SpiriUITests {
+  umbrella header "Pods-Spiri-SpiriUITests-umbrella.h"
+
+  export *
+  module * { export * }
+}
