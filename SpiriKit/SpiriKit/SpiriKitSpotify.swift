@@ -20,21 +20,7 @@ import SpotifyWebAPI
  and save them to persistent storage in the keychain.
  */
 public class SpiriKitSpotify: ObservableObject {
-    private static let clientId: String = {
-        if let clientId = ProcessInfo.processInfo
-            .environment["CLIENT_ID"] {
-            return clientId
-        }
-        fatalError("Could not find 'CLIENT_ID' in environment variables")
-    }()
-    
-    private static let clientSecret: String = {
-        if let clientSecret = ProcessInfo.processInfo
-            .environment["CLIENT_SECRET"] {
-            return clientSecret
-        }
-        fatalError("Could not find 'CLIENT_SECRET' in environment variables")
-    }()
+    private static let clientId = "4c29315b680c4ac381b72ffeb169e87f"
     
     /// The key in the keychain that is used to store the authorization
     /// information: "authorizationManager".
@@ -62,6 +48,9 @@ public class SpiriKitSpotify: ObservableObject {
     /// **authorization process completes.**
     private let authorizationState = String.randomURLSafe(length: 128)
     
+    private let codeVerifier = String.randomURLSafe(length: 128)
+    private let codeChallenge: String
+    
     /**
      Whether or not the application has been authorized. If `true`, then you can
      begin making requests to the Spotify web API using the `api` property of
@@ -84,15 +73,18 @@ public class SpiriKitSpotify: ObservableObject {
     
     /// An instance of `SpotifyAPI` that you use to make requests to the Spotify
     /// web API.
-    public let api = SpotifyAPI(
-        authorizationManager: AuthorizationCodeFlowManager(
-            clientId: SpiriKitSpotify.clientId, clientSecret: SpiriKitSpotify.clientSecret
-        )
-    )
+    public let api: SpotifyAPI<AuthorizationCodeFlowPKCEManager>
     
     private var cancellables: [AnyCancellable] = []
     
     public init() {
+        self.codeChallenge = String.makeCodeChallenge(codeVerifier: self.codeVerifier)
+        self.api = SpotifyAPI(
+            authorizationManager: AuthorizationCodeFlowPKCEManager(
+                clientId: Self.clientId
+            )
+        )
+
         // MARK: Important: Subscribe to `authorizationManagerDidChange` BEFORE
         // MARK: retrieving `authorizationManager` from persistent storage
         self.api.authorizationManagerDidChange
@@ -113,7 +105,7 @@ public class SpiriKitSpotify: ObservableObject {
             do {
                 // Try to decode the data.
                 let authorizationManager = try JSONDecoder().decode(
-                    AuthorizationCodeFlowManager.self,
+                    AuthorizationCodeFlowPKCEManager.self,
                     from: authManagerData
                 )
                 
@@ -156,7 +148,7 @@ public class SpiriKitSpotify: ObservableObject {
     public func authorize() {
         let authorizationURL = api.authorizationManager.makeAuthorizationURL(
             redirectURI: Self.loginCallbackURL,
-            showDialog: true,
+            codeChallenge: self.codeChallenge,
             // This same value **MUST** be provided for the state parameter of
             // `authorizationManager.requestAccessAndRefreshTokens(redirectURIWithQuery:state:)`.
             // Otherwise, an error will be thrown.
@@ -178,6 +170,9 @@ public class SpiriKitSpotify: ObservableObject {
     public func requestTokens(url: URL) {
         self.api.authorizationManager.requestAccessAndRefreshTokens(
             redirectURIWithQuery: url,
+            // Must match the code verifier that was used to generate the
+            // code challenge when creating the authorization URL.
+            codeVerifier: self.codeVerifier,
             // Must match the value used when creating the authorization URL.
             state: self.authorizationState
         )

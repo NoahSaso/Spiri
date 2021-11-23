@@ -14,10 +14,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "4F960F27274B460E00C1F493"
-               BuildableName = "Spiri.app"
-               BlueprintName = "Spiri"
-               ReferencedContainer = "container:Spiri.xcodeproj">
+               BlueprintIdentifier = "4F960F90274B5C4E00C1F493"
+               BuildableName = "SpiriKit.framework"
+               BlueprintName = "SpiriKit"
+               ReferencedContainer = "container:SpiriKit.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -32,20 +32,10 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "4F960F37274B460F00C1F493"
-               BuildableName = "SpiriTests.xctest"
-               BlueprintName = "SpiriTests"
-               ReferencedContainer = "container:Spiri.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-         <TestableReference
-            skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "4F960F41274B460F00C1F493"
-               BuildableName = "SpiriUITests.xctest"
-               BlueprintName = "SpiriUITests"
-               ReferencedContainer = "container:Spiri.xcodeproj">
+               BlueprintIdentifier = "4F960F9A274B5C4E00C1F493"
+               BuildableName = "SpiriKitTests.xctest"
+               BlueprintName = "SpiriKitTests"
+               ReferencedContainer = "container:SpiriKit.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -60,16 +50,6 @@
       debugDocumentVersioning = "YES"
       debugServiceExtension = "internal"
       allowLocationSimulation = "YES">
-      <BuildableProductRunnable
-         runnableDebuggingMode = "0">
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "4F960F27274B460E00C1F493"
-            BuildableName = "Spiri.app"
-            BlueprintName = "Spiri"
-            ReferencedContainer = "container:Spiri.xcodeproj">
-         </BuildableReference>
-      </BuildableProductRunnable>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
@@ -77,16 +57,15 @@
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
       debugDocumentVersioning = "YES">
-      <BuildableProductRunnable
-         runnableDebuggingMode = "0">
+      <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "4F960F27274B460E00C1F493"
-            BuildableName = "Spiri.app"
-            BlueprintName = "Spiri"
-            ReferencedContainer = "container:Spiri.xcodeproj">
+            BlueprintIdentifier = "4F960F90274B5C4E00C1F493"
+            BuildableName = "SpiriKit.framework"
+            BlueprintName = "SpiriKit"
+            ReferencedContainer = "container:SpiriKit.xcodeproj">
          </BuildableReference>
-      </BuildableProductRunnable>
+      </MacroExpansion>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">

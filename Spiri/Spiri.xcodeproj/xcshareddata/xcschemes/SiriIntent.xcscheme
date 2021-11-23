@@ -58,15 +58,9 @@
       allowLocationSimulation = "YES"
       launchAutomaticallySubstyle = "2">
       <RemoteRunnable
-         runnableDebuggingMode = "2"
-         BundleIdentifier = "com.apple.notificationcenterui">
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "4F459829274B647C009AF9C7"
-            BuildableName = "SiriIntent.appex"
-            BlueprintName = "SiriIntent"
-            ReferencedContainer = "container:Spiri.xcodeproj">
-         </BuildableReference>
+         runnableDebuggingMode = "1"
+         BundleIdentifier = "com.apple.shortcuts"
+         RemotePath = "/var/containers/Bundle/Application/A60B27FA-2CE9-4562-AB86-80FDFED817A2/Shortcuts.app">
       </RemoteRunnable>
       <MacroExpansion>
          <BuildableReference
@@ -77,18 +71,6 @@
             ReferencedContainer = "container:Spiri.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
-      <EnvironmentVariables>
-         <EnvironmentVariable
-            key = "CLIENT_SECRET"
-            value = "0f36adc506e74fb2bc0a57986379f58f"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-         <EnvironmentVariable
-            key = "CLIENT_ID"
-            value = "4c29315b680c4ac381b72ffeb169e87f"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-      </EnvironmentVariables>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
