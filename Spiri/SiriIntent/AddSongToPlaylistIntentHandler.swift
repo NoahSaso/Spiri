@@ -98,7 +98,7 @@ class AddSongToPlaylistIntentHandler: NSObject, AddSongToPlaylistIntentHandling 
                         return completion(PlaylistResolutionResult.needsValue())
                     }
 
-                    // if found great result, confirm and then use it
+                    // if found great result, use it
                     if let winner = searchResults.first(where: { $0.score < 0.1 }) {
                         let p = playlists[winner.index]
                         let playlist = Playlist(identifier: p.id, display: p.name)
