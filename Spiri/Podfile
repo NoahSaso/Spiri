@@ -22,7 +22,6 @@ target 'Spiri' do
   use_frameworks!
 
   # Pods for Spiri
-  pod "Fuse"
 
   target 'SpiriTests' do
     inherit! :search_paths
