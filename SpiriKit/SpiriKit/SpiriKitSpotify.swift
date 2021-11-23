@@ -2,7 +2,7 @@
 //  SpiriKitSpotify.swift
 //  SpiriKitSpotify
 //
-//  Created by Noah Saso on 11/21/21.
+//  Created on 11/21/21.
 //
 
 import Foundation
@@ -20,11 +20,12 @@ import SpotifyWebAPI
  and save them to persistent storage in the keychain.
  */
 public class SpiriKitSpotify: ObservableObject {
-    private static let clientId = "4c29315b680c4ac381b72ffeb169e87f"
-    
     /// The key in the keychain that is used to store the authorization
     /// information: "authorizationManager".
     static let authorizationManagerKey = "authorizationManager"
+    
+    /// The key in the keychain that is used to store the client ID: "clientId".
+    static let clientIdKey = "clientId"
     
     /// The URL that Spotify will redirect to after the user either authorizes
     /// or denies authorization for your application.
@@ -41,6 +42,9 @@ public class SpiriKitSpotify: ObservableObject {
         .userReadPlaybackState,
         .userReadCurrentlyPlaying,
     ]
+    
+    /// The keychain to store the authorization information in.
+    private let keychain = Keychain(service: "com.noahsaso.spiri")
     
     /// A cryptographically-secure random string used to ensure than an incoming
     /// redirect from Spotify was the result of a request made by this app, and
@@ -68,40 +72,67 @@ public class SpiriKitSpotify: ObservableObject {
      */
     @Published public private(set) var isAuthorized = false
     
-    /// The keychain to store the authorization information in.
-    private let keychain = Keychain(service: "com.noahsaso.spiri")
-    
     /// An instance of `SpotifyAPI` that you use to make requests to the Spotify
     /// web API.
-    public let api: SpotifyAPI<AuthorizationCodeFlowPKCEManager>
+    public var api: SpotifyAPI<AuthorizationCodeFlowPKCEManager>?
     
     private var cancellables: [AnyCancellable] = []
     
+    /**
+     Automatically sets up the API instance if a client ID exists in the keychain.
+     */
     public init() {
         self.codeChallenge = String.makeCodeChallenge(codeVerifier: self.codeVerifier)
+
+        do {
+            // Check to see if the client ID is saved in the keychain
+            // and try to set up the API if so.
+            if try self.keychain.contains(Self.clientIdKey) {
+                print("setting up spotify API")
+                self.setup()
+            }
+        } catch {
+            print("could not access keychain to check presence of client ID")
+        }
+    }
+
+    /**
+     Setup instance of API with necessary client ID, setup event handlers, and attempt to load authorization data from keychain.
+     */
+    private func setup() {
+        guard let clientId = self.loadClientId() else {
+            return
+        }
+        
+        // If API already set up, cancel existing subscribers.
+        if self.api != nil {
+            cancellables.removeAll()
+            self.isAuthorized = false
+        }
+
         self.api = SpotifyAPI(
             authorizationManager: AuthorizationCodeFlowPKCEManager(
-                clientId: Self.clientId
+                clientId: clientId
             )
         )
 
         // MARK: Important: Subscribe to `authorizationManagerDidChange` BEFORE
         // MARK: retrieving `authorizationManager` from persistent storage
-        self.api.authorizationManagerDidChange
-        // We must receive on the main thread because we are updating the
-        // @Published `isAuthorized` property.
+        self.api!.authorizationManagerDidChange
+            // We must receive on the main thread because we are updating the
+            // @Published `isAuthorized` property.
             .receive(on: RunLoop.main)
             .sink(receiveValue: authorizationManagerDidChange)
             .store(in: &cancellables)
         
-        self.api.authorizationManagerDidDeauthorize
+        self.api!.authorizationManagerDidDeauthorize
             .receive(on: RunLoop.main)
             .sink(receiveValue: authorizationManagerDidDeauthorize)
             .store(in: &cancellables)
         
         // Check to see if the authorization information is saved in the
         // keychain.
-        if let authManagerData = keychain[data: Self.authorizationManagerKey] {
+        if let authManagerData = self.keychain[data: Self.authorizationManagerKey] {
             do {
                 // Try to decode the data.
                 let authorizationManager = try JSONDecoder().decode(
@@ -123,10 +154,10 @@ public class SpiriKitSpotify: ObservableObject {
                  We do not need to update `self.isAuthorized` here because that
                  is already handled in `authorizationManagerDidChange()`.
                  */
-                self.api.authorizationManager = authorizationManager
+                self.api!.authorizationManager = authorizationManager
                 
                 // update anyways so it is set immediately
-                self.isAuthorized = self.api.authorizationManager.isAuthorized(for: Self.scopes)
+                self.isAuthorized = self.api!.authorizationManager.isAuthorized(for: Self.scopes)
                 
                 print("found authorization manager in keychain")
             } catch {
@@ -139,6 +170,20 @@ public class SpiriKitSpotify: ObservableObject {
     }
     
     /**
+     Save client ID to the keychain.
+     */
+    public func saveClientId(_ clientId: String) {
+        self.keychain[Self.clientIdKey] = clientId
+    }
+
+    /**
+     Attempt to load client ID from the keychain.
+     */
+    public func loadClientId() -> String? {
+        return self.keychain[Self.clientIdKey]
+    }
+    
+    /**
      A convenience method that creates the authorization URL and opens it in the
      browser.
      
@@ -146,6 +191,13 @@ public class SpiriKitSpotify: ObservableObject {
      scopes
      */
     public func authorize() {
+        // Set up API in case client ID changed.
+        self.setup()
+        
+        guard let api = self.api else {
+            return
+        }
+
         let authorizationURL = api.authorizationManager.makeAuthorizationURL(
             redirectURI: Self.loginCallbackURL,
             codeChallenge: self.codeChallenge,
@@ -162,13 +214,27 @@ public class SpiriKitSpotify: ObservableObject {
         UIApplication.shared.open(authorizationURL)
     }
     
+    /**
+     Deauthorizes the API instance.
+     */
     public func deauthorize() {
-        self.api.authorizationManager.deauthorize()
+        guard let api = self.api else {
+            return
+        }
+
+        api.authorizationManager.deauthorize()
         print("deauthorized")
     }
     
+    /**
+     Requests authorization tokens using the credentials from the successful OAuth redirect.
+     */
     public func requestTokens(url: URL) {
-        self.api.authorizationManager.requestAccessAndRefreshTokens(
+        guard let api = self.api else {
+            return
+        }
+
+        api.authorizationManager.requestAccessAndRefreshTokens(
             redirectURIWithQuery: url,
             // Must match the code verifier that was used to generate the
             // code challenge when creating the authorization URL.
@@ -203,12 +269,16 @@ public class SpiriKitSpotify: ObservableObject {
      using `requestAccessAndRefreshTokens(redirectURIWithQuery:state:)`.
      */
     private func authorizationManagerDidChange() {
+        guard let api = self.api else {
+            return
+        }
+
         // Update the @Published `isAuthorized` property.
-        self.isAuthorized = self.api.authorizationManager.isAuthorized(for: Self.scopes)
+        self.isAuthorized = api.authorizationManager.isAuthorized(for: Self.scopes)
         
         do {
             // Encode the authorization information to data.
-            let authManagerData = try JSONEncoder().encode(self.api.authorizationManager)
+            let authManagerData = try JSONEncoder().encode(api.authorizationManager)
             
             // Save the data to the keychain.
             self.keychain[data: Self.authorizationManagerKey] = authManagerData
@@ -252,3 +322,29 @@ public class SpiriKitSpotify: ObservableObject {
     
 }
 
+
+/**
+ Preview class with functions stubbed for use in SwiftUI Previews.
+ */
+public class SpiriKitSpotify_Previews: SpiriKitSpotify {
+    override public func saveClientId(_ clientId: String) {
+        print("saveClientId", clientId)
+    }
+
+    override public func loadClientId() -> String? {
+        print("loadClientId")
+        return nil
+    }
+    
+    override public func authorize() {
+        print("authorize")
+    }
+    
+    override public func deauthorize() {
+        print("deauthorize")
+    }
+    
+    override public func requestTokens(url: URL) {
+        print("requestTokens", url)
+    }
+}

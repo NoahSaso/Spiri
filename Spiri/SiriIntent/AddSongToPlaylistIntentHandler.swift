@@ -28,13 +28,17 @@ class AddSongToPlaylistIntentHandler: NSObject, AddSongToPlaylistIntentHandling 
     func handle(intent: AddSongToPlaylistIntent, completion: @escaping (AddSongToPlaylistIntentResponse) -> Void) {
         print("handle time")
 
-        if !spotify.isAuthorized || intent.playlist?.identifier == nil || intent.playlist?.uri == nil {
+        guard
+            spotify.isAuthorized,
+            let api = spotify.api,
+            intent.playlist?.identifier != nil,
+            intent.playlist?.uri != nil
+        else {
             print("unauthorized or playlist fields empty")
             return completion(AddSongToPlaylistIntentResponse(code: .failureAuth, userActivity: nil))
         }
         
-        spotify.api
-            .currentPlayback()
+        api.currentPlayback()
             .sink(receiveCompletion: { value in
                 switch value {
                 case .finished: print("current playback completed")
@@ -52,8 +56,7 @@ class AddSongToPlaylistIntentHandler: NSObject, AddSongToPlaylistIntentHandling 
                 print("adding song")
 
                 // add song to playlist
-                self.spotify.api
-                    .addToPlaylist(URIContainer(uri: intent.playlist!.uri!), uris: [URIContainer(uri: item.uri!)])
+                api.addToPlaylist(URIContainer(uri: intent.playlist!.uri!), uris: [URIContainer(uri: item.uri!)])
                     .sink(receiveCompletion: { value in
                         switch value {
                         case .finished: print("add to playlist completed")
@@ -73,63 +76,67 @@ class AddSongToPlaylistIntentHandler: NSObject, AddSongToPlaylistIntentHandling 
     func resolvePlaylist(for intent: AddSongToPlaylistIntent, with completion: @escaping (PlaylistResolutionResult) -> Void) {
         print("resolving playlist")
 
-        if !spotify.isAuthorized {
+        guard
+            spotify.isAuthorized,
+            let api = spotify.api
+        else {
             return completion(PlaylistResolutionResult.success(with: Playlist(identifier: nil, display: "Unauthorized")))
         }
-
-        if let playlistSearch = intent.playlist {
-            spotify.api
-                .currentUserPlaylists(limit: 50)
-                .extendPagesConcurrently(spotify.api)
-                .collectAndSortByOffset()
-                .sink(receiveCompletion: { value in
-                    switch value {
-                    case .finished: print("current playlists completed")
-                    case .failure(let error):
-                        print("current playlists failure: \(error)")
-                        completion(PlaylistResolutionResult.needsValue())
-                    }
-                }, receiveValue: { playlists in
-                    print("received \(playlists.count) playlists")
-
-                    let searchResults = self.fuse.search(playlistSearch.spokenPhrase, in: playlists.map { $0.name })
-                    
-                    if searchResults.isEmpty {
-                        return completion(PlaylistResolutionResult.needsValue())
-                    }
-
-                    // if found great result, use it
-                    if let winner = searchResults.first(where: { $0.score < 0.1 }) {
-                        let p = playlists[winner.index]
-                        let playlist = Playlist(identifier: p.id, display: p.name)
-                        playlist.uri = p.uri
-                        return completion(PlaylistResolutionResult.success(with: playlist))
-                    }
-                    
-                    let playlistResults = searchResults.map { playlists[$0.index] }.map { playlist -> Playlist in
-                        let p = Playlist(identifier: playlist.id, display: playlist.name)
-                        p.uri = playlist.uri
-                        return p
-                    }
-                    return completion(PlaylistResolutionResult.disambiguation(with: playlistResults))
-                })
-                .store(in: &cancellables)
-        } else {
-            completion(PlaylistResolutionResult.needsValue())
+        
+        guard let playlistSearch = intent.playlist else {
+            return completion(PlaylistResolutionResult.needsValue())
         }
+
+        api.currentUserPlaylists(limit: 50)
+            .extendPagesConcurrently(api)
+            .collectAndSortByOffset()
+            .sink(receiveCompletion: { value in
+                switch value {
+                case .finished: print("current playlists completed")
+                case .failure(let error):
+                    print("current playlists failure: \(error)")
+                    completion(PlaylistResolutionResult.needsValue())
+                }
+            }, receiveValue: { playlists in
+                print("received \(playlists.count) playlists")
+
+                let searchResults = self.fuse.search(playlistSearch.spokenPhrase, in: playlists.map { $0.name })
+                
+                if searchResults.isEmpty {
+                    return completion(PlaylistResolutionResult.needsValue())
+                }
+
+                // if found great result, use it
+                if let winner = searchResults.first(where: { $0.score < 0.1 }) {
+                    let p = playlists[winner.index]
+                    let playlist = Playlist(identifier: p.id, display: p.name)
+                    playlist.uri = p.uri
+                    return completion(PlaylistResolutionResult.success(with: playlist))
+                }
+                
+                let playlistResults = searchResults.map { playlists[$0.index] }.map { playlist -> Playlist in
+                    let p = Playlist(identifier: playlist.id, display: playlist.name)
+                    p.uri = playlist.uri
+                    return p
+                }
+                return completion(PlaylistResolutionResult.disambiguation(with: playlistResults))
+            })
+            .store(in: &cancellables)
     }
 
     func providePlaylistOptionsCollection(for intent: AddSongToPlaylistIntent, searchTerm: String?, with completion: @escaping (INObjectCollection<Playlist>?, Error?) -> Void) {
         print("providing playlist options")
-
-        if !spotify.isAuthorized {
+        
+        guard
+            spotify.isAuthorized,
+            let api = spotify.api
+        else {
             print("spotify unauthorized")
             return completion(nil, nil)
         }
 
-        spotify.api
-            .currentUserPlaylists(limit: 50)
-            .extendPagesConcurrently(spotify.api)
+        api.currentUserPlaylists(limit: 50)
+            .extendPagesConcurrently(api)
             .collectAndSortByOffset()
             .sink(receiveCompletion: { value in
                 switch value {

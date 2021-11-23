@@ -15,7 +15,8 @@ struct SpiriApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            // Load initial client ID value from the keychain.
+            ContentView(clientId: self.spotify.loadClientId() ?? "")
                 .environmentObject(spotify)
                 .onOpenURL(perform: { url in spotify.requestTokens(url: url) })
                 .onAppear(perform: {
@@ -23,7 +24,7 @@ struct SpiriApp: App {
                     intent.playlist = Playlist(identifier: nil, display: "Example Playlist")
                     intent.suggestedInvocationPhrase = "Add Current Song To Playlist"
                     let interaction = INInteraction(intent: intent, response: nil)
-                    interaction.donate { err in print(err) }
+                    interaction.donate { err in print(err == nil ? "donated" : err?.localizedDescription ?? "donation error") }
                     
                     INPreferences.requestSiriAuthorization({ status in
                         print("siri auth:", status.rawValue)
