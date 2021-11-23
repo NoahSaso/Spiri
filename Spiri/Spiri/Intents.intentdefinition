@@ -117,7 +117,11 @@
 							<string>Confirmation</string>
 						</dict>
 					</array>
+					<key>INIntentParameterSupportsDynamicEnumeration</key>
+					<true/>
 					<key>INIntentParameterSupportsResolution</key>
+					<true/>
+					<key>INIntentParameterSupportsSearch</key>
 					<true/>
 					<key>INIntentParameterTag</key>
 					<integer>2</integer>
@@ -145,11 +149,11 @@
 					</dict>
 					<dict>
 						<key>INIntentResponseCodeConciseFormatString</key>
-						<string>Failed to add ${song} to ${playlist}.</string>
+						<string>${failureMessage}</string>
 						<key>INIntentResponseCodeConciseFormatStringID</key>
 						<string>ZcEms7</string>
 						<key>INIntentResponseCodeFormatString</key>
-						<string>Failed to add ${song} to ${playlist}.</string>
+						<string>${failureMessage}</string>
 						<key>INIntentResponseCodeFormatStringID</key>
 						<string>jQeFBR</string>
 						<key>INIntentResponseCodeName</key>
@@ -193,7 +197,7 @@
 					</dict>
 				</array>
 				<key>INIntentResponseLastParameterTag</key>
-				<integer>2</integer>
+				<integer>3</integer>
 				<key>INIntentResponseParameters</key>
 				<array>
 					<dict>
@@ -221,6 +225,20 @@
 						<string>playlist</string>
 						<key>INIntentResponseParameterTag</key>
 						<integer>1</integer>
+						<key>INIntentResponseParameterType</key>
+						<string>String</string>
+					</dict>
+					<dict>
+						<key>INIntentResponseParameterDisplayName</key>
+						<string>Failure Message</string>
+						<key>INIntentResponseParameterDisplayNameID</key>
+						<string>C0gqkO</string>
+						<key>INIntentResponseParameterDisplayPriority</key>
+						<integer>3</integer>
+						<key>INIntentResponseParameterName</key>
+						<string>failureMessage</string>
+						<key>INIntentResponseParameterTag</key>
+						<integer>3</integer>
 						<key>INIntentResponseParameterType</key>
 						<string>String</string>
 					</dict>

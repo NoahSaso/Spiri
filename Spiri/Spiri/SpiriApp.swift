@@ -24,6 +24,10 @@ struct SpiriApp: App {
                     intent.suggestedInvocationPhrase = "Add Current Song To Playlist"
                     let interaction = INInteraction(intent: intent, response: nil)
                     interaction.donate { err in print(err) }
+                    
+                    INPreferences.requestSiriAuthorization({ status in
+                        print("siri auth:", status.rawValue)
+                    })
                 })
         }
     }

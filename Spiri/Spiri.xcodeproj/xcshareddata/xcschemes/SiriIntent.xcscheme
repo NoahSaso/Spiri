@@ -58,9 +58,15 @@
       allowLocationSimulation = "YES"
       launchAutomaticallySubstyle = "2">
       <RemoteRunnable
-         runnableDebuggingMode = "0"
-         BundleIdentifier = "com.noahsaso.spiri"
-         RemotePath = "/var/containers/Bundle/Application/942EB4C2-2A43-44CB-A902-7DE4DE30E82C/Spiri.app">
+         runnableDebuggingMode = "2"
+         BundleIdentifier = "com.apple.notificationcenterui">
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "4F459829274B647C009AF9C7"
+            BuildableName = "SiriIntent.appex"
+            BlueprintName = "SiriIntent"
+            ReferencedContainer = "container:Spiri.xcodeproj">
+         </BuildableReference>
       </RemoteRunnable>
       <MacroExpansion>
          <BuildableReference

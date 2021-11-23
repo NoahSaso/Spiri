@@ -52,6 +52,7 @@ public class SpiriKitSpotify: ObservableObject {
         .playlistModifyPublic,
         .playlistModifyPrivate,
         .playlistReadCollaborative,
+        .userReadPlaybackState,
         .userReadCurrentlyPlaying,
     ]
     
@@ -132,6 +133,9 @@ public class SpiriKitSpotify: ObservableObject {
                  */
                 self.api.authorizationManager = authorizationManager
                 
+                // update anyways so it is set immediately
+                self.isAuthorized = self.api.authorizationManager.isAuthorized(for: Self.scopes)
+                
                 print("found authorization manager in keychain")
             } catch {
                 print("could not decode authorizationManager from data:\n\(error)")
@@ -140,7 +144,6 @@ public class SpiriKitSpotify: ObservableObject {
         else {
             print("did not find authorization manager in keychain")
         }
-        
     }
     
     /**
@@ -206,7 +209,7 @@ public class SpiriKitSpotify: ObservableObject {
      */
     private func authorizationManagerDidChange() {
         // Update the @Published `isAuthorized` property.
-        self.isAuthorized = self.api.authorizationManager.isAuthorized()
+        self.isAuthorized = self.api.authorizationManager.isAuthorized(for: Self.scopes)
         
         do {
             // Encode the authorization information to data.
@@ -215,7 +218,7 @@ public class SpiriKitSpotify: ObservableObject {
             // Save the data to the keychain.
             self.keychain[data: Self.authorizationManagerKey] = authManagerData
 
-            print("saved authorization manager to keychain")
+            print("saved authorization manager to keychain. is authorized:", self.isAuthorized)
         } catch {
             print(
                 "couldn't encode authorizationManager for storage in the " +
