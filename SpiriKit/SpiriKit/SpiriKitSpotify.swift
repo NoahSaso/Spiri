@@ -274,7 +274,6 @@ public class SpiriKitSpotify: ObservableObject {
      */
     public func requestTokens(url: URL) {
         guard
-            self.isAuthorized,
             let api = self.api
         else {
             return
