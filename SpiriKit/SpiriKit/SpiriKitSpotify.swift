@@ -27,6 +27,9 @@ public class SpiriKitSpotify: ObservableObject {
     /// The key in the keychain that is used to store the client ID: "clientId".
     static let clientIdKey = "clientId"
     
+    /// The key in the keychain that is used to store the aliases: "aliases".
+    static let aliasesKey = "aliases"
+    
     /// The URL that Spotify will redirect to after the user either authorizes
     /// or denies authorization for your application.
     static let loginCallbackURL = URL(
@@ -71,6 +74,11 @@ public class SpiriKitSpotify: ObservableObject {
      `SpotifyAPI.authorizationManager.deauthorize()` is called.
      */
     @Published public private(set) var isAuthorized = false
+    
+    /**
+     List of user playlists.
+     */
+    @Published public private(set) var playlists = [Playlist<PlaylistItemsReference>]()
     
     /// An instance of `SpotifyAPI` that you use to make requests to the Spotify
     /// web API.
@@ -175,12 +183,47 @@ public class SpiriKitSpotify: ObservableObject {
     public func saveClientId(_ clientId: String) {
         self.keychain[Self.clientIdKey] = clientId
     }
-
+    
     /**
      Attempt to load client ID from the keychain.
      */
     public func loadClientId() -> String? {
         return self.keychain[Self.clientIdKey]
+    }
+    
+    /**
+     Save aliases to the keychain.
+     */
+    public func saveAliases(_ aliases: [String:String]) -> Bool {
+        do {
+            let json = try JSONSerialization.data(withJSONObject: aliases, options: [])
+            self.keychain[data: Self.aliasesKey] = json
+        } catch {
+            print("failed to save aliases to keychain")
+            return false
+        }
+
+        return true
+    }
+    
+    /**
+     Load aliases dictionary from the keychain.
+     */
+    public func loadAliases() -> [String:String] {
+        guard let aliasesData = self.keychain[data: Self.aliasesKey] else {
+            return [String:String]()
+        }
+        
+        do {
+            let json = try JSONSerialization.jsonObject(with: aliasesData, options: .mutableContainers)
+            if let aliases = json as? [String:String] {
+                return aliases
+            }
+        } catch {
+            print("failed to deserialize aliases data")
+        }
+
+        return [String:String]()
     }
     
     /**
@@ -230,7 +273,10 @@ public class SpiriKitSpotify: ObservableObject {
      Requests authorization tokens using the credentials from the successful OAuth redirect.
      */
     public func requestTokens(url: URL) {
-        guard let api = self.api else {
+        guard
+            self.isAuthorized,
+            let api = self.api
+        else {
             return
         }
 
@@ -290,6 +336,11 @@ public class SpiriKitSpotify: ObservableObject {
                 "keychain:\n\(error)"
             )
         }
+        
+        // If authorized, prefetch playlists.
+        if self.isAuthorized {
+            self.fetchPlaylists()
+        }
     }
     
     /**
@@ -320,6 +371,42 @@ public class SpiriKitSpotify: ObservableObject {
         }
     }
     
+    /**
+     Loads playlists from the API, stores them in an instance variable, and returns them.
+     */
+    public func fetchPlaylists(success: (([Playlist<PlaylistItemsReference>]) -> Void)? = nil, failure: ((Error) -> Void)? = nil) {
+        guard
+            self.isAuthorized,
+            let api = self.api
+        else {
+            return
+        }
+
+        api.currentUserPlaylists(limit: 50)
+            .extendPagesConcurrently(api)
+            .collectAndSortByOffset()
+            .sink(receiveCompletion: { value in
+                switch value {
+                case .finished: print("fetch playlists completed")
+                case .failure(let error):
+                    print("fetch playlists failure: \(error)")
+
+                    failure?(error)
+                }
+            }, receiveValue: { playlists in
+                print("received \(playlists.count) playlists")
+                self.playlists.removeAll()
+                self.playlists.append(contentsOf: playlists)
+                
+                self.playlists.sort {
+                    $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                    < $1.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                }
+
+                success?(self.playlists)
+            })
+            .store(in: &cancellables)
+    }
 }
 
 
@@ -335,6 +422,16 @@ public class SpiriKitSpotify_Previews: SpiriKitSpotify {
         print("loadClientId")
         return nil
     }
+
+    override public func saveAliases(_ aliases: [String:String]) -> Bool {
+        print("saveAliases", aliases)
+        return true
+    }
+
+    override public func loadAliases() -> [String:String] {
+        print("loadAliases")
+        return [String:String]()
+    }
     
     override public func authorize() {
         print("authorize")
@@ -346,5 +443,10 @@ public class SpiriKitSpotify_Previews: SpiriKitSpotify {
     
     override public func requestTokens(url: URL) {
         print("requestTokens", url)
+    }
+    
+    override public func fetchPlaylists(success: (([Playlist<PlaylistItemsReference>]) -> Void)? = nil, failure: ((Error) -> Void)? = nil) {
+        print("fetchPlaylists")
+        success?(self.playlists)
     }
 }

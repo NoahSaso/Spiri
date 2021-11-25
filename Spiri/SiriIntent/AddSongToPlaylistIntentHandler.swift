@@ -24,6 +24,28 @@ class AddSongToPlaylistIntentHandler: NSObject, AddSongToPlaylistIntentHandling 
 
     private let spotify = SpiriKitSpotify()
     private let fuse = Fuse(threshold: 0.4)
+    
+    /**
+     Try to find a Playlist from the API matching the given name in the list of playlists from the API and the alias dictionary and create a parameter value for the Playlist.
+     */
+    func getPlaylistForName(_ name: String, playlists: [SpotifyWebAPI.Playlist<PlaylistItemsReference>], aliases: [String:String]) -> Playlist? {
+        var p = playlists.first { $0.name == name }
+        if p == nil {
+            let id = aliases.first { $0.key == name }?.value
+            if id != nil {
+                p = playlists.first { $0.id == id }
+            }
+        }
+
+        if p == nil {
+            return nil
+        }
+
+        let playlist = Playlist(identifier: p!.id, display: p!.name)
+        playlist.uri = p!.uri
+
+        return playlist
+    }
 
     func handle(intent: AddSongToPlaylistIntent, completion: @escaping (AddSongToPlaylistIntentResponse) -> Void) {
         print("handle time")
@@ -76,98 +98,97 @@ class AddSongToPlaylistIntentHandler: NSObject, AddSongToPlaylistIntentHandling 
     func resolvePlaylist(for intent: AddSongToPlaylistIntent, with completion: @escaping (PlaylistResolutionResult) -> Void) {
         print("resolving playlist")
 
-        guard
-            spotify.isAuthorized,
-            let api = spotify.api
-        else {
+        if !spotify.isAuthorized {
+            print("spotify unauthorized")
             return completion(PlaylistResolutionResult.success(with: Playlist(identifier: nil, display: "Unauthorized")))
         }
         
         guard let playlistSearch = intent.playlist else {
             return completion(PlaylistResolutionResult.needsValue())
         }
+        
+        spotify.fetchPlaylists(
+            success: { playlists in
+                let aliases = self.spotify.loadAliases()
 
-        api.currentUserPlaylists(limit: 50)
-            .extendPagesConcurrently(api)
-            .collectAndSortByOffset()
-            .sink(receiveCompletion: { value in
-                switch value {
-                case .finished: print("current playlists completed")
-                case .failure(let error):
-                    print("current playlists failure: \(error)")
-                    completion(PlaylistResolutionResult.needsValue())
-                }
-            }, receiveValue: { playlists in
-                print("received \(playlists.count) playlists")
+                // include aliases in matchable items
+                let allNames = playlists.map { $0.name } + aliases.map { $0.key }
 
-                let searchResults = self.fuse.search(playlistSearch.spokenPhrase, in: playlists.map { $0.name })
-                
+                let searchResults = self.fuse.search(playlistSearch.spokenPhrase, in: allNames)
+
                 if searchResults.isEmpty {
                     return completion(PlaylistResolutionResult.needsValue())
                 }
 
                 // if found great result, use it
                 if let winner = searchResults.first(where: { $0.score < 0.1 }) {
-                    let p = playlists[winner.index]
-                    let playlist = Playlist(identifier: p.id, display: p.name)
-                    playlist.uri = p.uri
+                    let name = allNames[winner.index]
+                    let p = self.getPlaylistForName(name, playlists: playlists, aliases: aliases)
+
+                    guard let playlist = p else {
+                        return completion(PlaylistResolutionResult.needsValue())
+                    }
+
                     return completion(PlaylistResolutionResult.success(with: playlist))
                 }
                 
-                let playlistResults = searchResults.map { playlists[$0.index] }.map { playlist -> Playlist in
-                    let p = Playlist(identifier: playlist.id, display: playlist.name)
-                    p.uri = playlist.uri
-                    return p
-                }
-                return completion(PlaylistResolutionResult.disambiguation(with: playlistResults))
-            })
-            .store(in: &cancellables)
+                let playlistResults = searchResults
+                    .map { self.getPlaylistForName(allNames[$0.index], playlists: playlists, aliases: aliases) }
+                    .filter { $0 != nil }.map { $0! }
+                completion(PlaylistResolutionResult.disambiguation(with: playlistResults))
+            },
+            failure: { error in
+                print("current playlists failure: \(error)")
+                completion(PlaylistResolutionResult.needsValue())
+            }
+        )
     }
 
     func providePlaylistOptionsCollection(for intent: AddSongToPlaylistIntent, searchTerm: String?, with completion: @escaping (INObjectCollection<Playlist>?, Error?) -> Void) {
         print("providing playlist options")
         
-        guard
-            spotify.isAuthorized,
-            let api = spotify.api
-        else {
+        if !spotify.isAuthorized {
             print("spotify unauthorized")
             return completion(nil, nil)
         }
-
-        api.currentUserPlaylists(limit: 50)
-            .extendPagesConcurrently(api)
-            .collectAndSortByOffset()
-            .sink(receiveCompletion: { value in
-                switch value {
-                case .finished: print("provide current playlists completed")
-                case .failure(let error):
-                    print("provide current playlists failure: \(error)")
-                    completion(nil, error)
-                }
-            }, receiveValue: { playlists in
-                print("received \(playlists.count) playlists")
+        
+        spotify.fetchPlaylists(
+            success: { playlists in
+                let aliases = self.spotify.loadAliases()
 
                 var playlistResults: [Playlist] = []
                 if let playlistSearch = searchTerm {
-                    let searchResults = self.fuse.search(playlistSearch, in: playlists.map { $0.name })
+                    // include aliases in matchable items
+                    let allNames = playlists.map { $0.name } + aliases.map { $0.key }
+
+                    let searchResults = self.fuse.search(playlistSearch, in: allNames)
                     if !searchResults.isEmpty {
-                        playlistResults.append(contentsOf: searchResults.map { playlists[$0.index] }.map {
+                        playlistResults = searchResults
+                            .map { self.getPlaylistForName(allNames[$0.index], playlists: playlists, aliases: aliases) }
+                            .filter { $0 != nil }.map { $0! }
+                    }
+                } else {
+                    playlistResults =
+                        playlists.map {
                             let p = Playlist(identifier: $0.id, display: $0.name)
                             p.uri = $0.uri
                             return p
-                        })
-                    }
-                } else {
-                    playlistResults = playlists.map {
-                        let p = Playlist(identifier: $0.id, display: $0.name)
-                        p.uri = $0.uri
-                        return p
-                    }
+                        } +
+                        // add aliases to items
+                        aliases.map { alias -> Playlist? in
+                            guard let playlist = playlists.first(where: { p in p.id == alias.value }) else {
+                                return nil
+                            }
+                            let p = Playlist(identifier: alias.value, display: alias.key)
+                            p.uri = playlist.uri
+                            return p
+                        }.filter { $0 != nil }.map { $0! }
                 }
                 
                 completion(INObjectCollection(items: playlistResults.sorted { $0.displayString.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() < $1.displayString.trimmingCharacters(in: .whitespacesAndNewlines)      .lowercased() }), nil)
+            }, failure: { error in
+                print("provide current playlists failure: \(error)")
+                completion(nil, error)
             })
-            .store(in: &cancellables)
     }
 }

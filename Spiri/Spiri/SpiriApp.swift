@@ -16,7 +16,10 @@ struct SpiriApp: App {
     var body: some Scene {
         WindowGroup {
             // Load initial client ID value from the keychain.
-            ContentView(clientId: self.spotify.loadClientId() ?? "")
+            ContentView(
+                clientId: self.spotify.loadClientId() ?? "",
+                aliases: self.spotify.loadAliases()
+            )
                 .environmentObject(spotify)
                 .onOpenURL(perform: { url in spotify.requestTokens(url: url) })
                 .onAppear(perform: {
