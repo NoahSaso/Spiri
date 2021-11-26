@@ -90,10 +90,10 @@ struct ContentView: View {
         if self.newAliasesShowing {
             List {
                 ForEach(spotify.playlists, id: \.id) { newAliasPlaylist in
-                    Button(newAliasPlaylist.name, action: {
-                        let playlist = spotify.playlists.first { $0.id == newAliasPlaylist.id }!
-                        setAlias(alias: playlist.name, playlistId: playlist.id)
-                    })
+                    Button(
+                        newAliasPlaylist.name,
+                        action: { setAlias(alias: newAliasPlaylist.name, playlistId: newAliasPlaylist.id) }
+                    )
                 }
             }
         }
