@@ -12,13 +12,6 @@ import Combine
 import Fuse
 import SpotifyWebAPI
 
-class URIContainer: SpotifyURIConvertible {
-    let uri: String
-    init(uri: String) {
-        self.uri = uri
-    }
-}
-
 class AddSongToPlaylistIntentHandler: NSObject, AddSongToPlaylistIntentHandling {
     private var cancellables: Set<AnyCancellable> = []
 
@@ -53,8 +46,9 @@ class AddSongToPlaylistIntentHandler: NSObject, AddSongToPlaylistIntentHandling 
         guard
             spotify.isAuthorized,
             let api = spotify.api,
-            intent.playlist?.identifier != nil,
-            intent.playlist?.uri != nil
+            let playlist = intent.playlist,
+            playlist.identifier != nil,
+            let playlistUri = playlist.uri
         else {
             print("unauthorized or playlist fields empty")
             return completion(AddSongToPlaylistIntentResponse(code: .failureAuth, userActivity: nil))
@@ -71,26 +65,52 @@ class AddSongToPlaylistIntentHandler: NSObject, AddSongToPlaylistIntentHandling 
             }, receiveValue: { context in
                 print("got playback")
 
-                guard let item = context?.item else {
+                guard
+                    let item = context?.item,
+                    let itemId = item.id,
+                    let itemUri = item.uri
+                else {
                     return completion(AddSongToPlaylistIntentResponse(code: .failureSong, userActivity: nil))
                 }
                 
-                print("adding song")
+                func add() {
+                    print("adding song")
+                    self.spotify
+                        .addToPlaylist(
+                            itemUri: itemUri,
+                            playlistUri: playlistUri,
+                            success: { completion(AddSongToPlaylistIntentResponse.success(song: item.name, playlist: playlist.displayString)) },
+                            failure: { completion(AddSongToPlaylistIntentResponse.failure(failureMessage: $0.localizedDescription)) }
+                        )
+                }
+                
+                // check if duplicate exists
+                if !self.spotify.addDuplicates {
+                    let playlistUriContainer = SpiriKitURIContainer(uri: playlistUri)
+                    
+                    api
+                        .playlistItems(playlistUriContainer)
+                        .extendPagesConcurrently(api)
+                        .collectAndSortByOffset()
+                        .sink(receiveCompletion: { value in
+                            switch value {
+                            case .finished: print("playlist items completed")
+                            case .failure(let error):
+                                print("playlist items failure: \(error)")
+                                completion(AddSongToPlaylistIntentResponse.failure(failureMessage: error.localizedDescription))
+                            }
+                        }, receiveValue: { result in
+                            // if any item in playlist matches the ID we're trying to add, give duplicate error
+                            if result.contains(where: { $0.item?.id == itemId }) {
+                                return completion(AddSongToPlaylistIntentResponse.duplicate(song: item.name, playlist: playlist.displayString))
+                            }
 
-                // add song to playlist
-                api.addToPlaylist(URIContainer(uri: intent.playlist!.uri!), uris: [URIContainer(uri: item.uri!)])
-                    .sink(receiveCompletion: { value in
-                        switch value {
-                        case .finished: print("add to playlist completed")
-                        case .failure(let error):
-                            print("add to playlist failure: \(error)")
-                            completion(AddSongToPlaylistIntentResponse.failure(failureMessage: error.localizedDescription))
-                        }
-                    }, receiveValue: { snapshotId in
-                        print("added! playlist: \(intent.playlist!.identifier!), snapshot id: \(snapshotId)")
-                        completion(AddSongToPlaylistIntentResponse.success(song: item.name, playlist: intent.playlist!.displayString))
-                    })
-                    .store(in: &self.cancellables)
+                            add()
+                        })
+                        .store(in: &self.cancellables)
+                } else {
+                    add()
+                }
             })
             .store(in: &cancellables)
     }

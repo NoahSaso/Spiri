@@ -55,37 +55,53 @@ struct ContentView: View {
     }
 
     var body: some View {
-        TextField("Spotify App Client ID", text: $clientId)
-            .textInputAutocapitalization(.never)
-            .disableAutocorrection(true)
-            .padding(24)
-            .submitLabel(.go)
-            .overlay(
-                RoundedRectangle(cornerRadius: 5)
-                    .stroke(lineWidth: 1.0)
-                    .padding(EdgeInsets(top: 16, leading: 12, bottom: 16, trailing: 12))
-            )
-            .disabled(spotify.isAuthorized)
-            .opacity(spotify.isAuthorized ? 0.4 : 1.0)
-            .onChange(of: clientId) { spotify.saveClientId($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
-            .onSubmit(authorize)
-            .alert(isPresented: $clientIdInvalidShowing) {
-                Alert(
-                    title: Text("Invalid"),
-                    message: Text("Client ID cannot be empty.")
+        VStack {
+            TextField("Spotify App Client ID", text: $clientId)
+                .textInputAutocapitalization(.never)
+                .disableAutocorrection(true)
+                .padding(24)
+                .submitLabel(.go)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5)
+                        .stroke(lineWidth: 1.0)
+                        .padding(EdgeInsets(top: 16, leading: 12, bottom: 16, trailing: 12))
                 )
-            }
+                .disabled(spotify.isAuthorized)
+                .opacity(spotify.isAuthorized ? 0.4 : 1.0)
+                .onChange(of: clientId) { spotify.saveClientId($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+                .onSubmit(authorize)
+                .alert(isPresented: $clientIdInvalidShowing) {
+                    Alert(
+                        title: Text("Invalid"),
+                        message: Text("Client ID cannot be empty.")
+                    )
+                }
 
-        if spotify.isAuthorized {
-            Button("Deauthorize Spotify", action: spotify.deauthorize)
-        } else {
-            Button("Authorize Spotify", action: authorize)
+            if spotify.isAuthorized {
+                Button("Deauthorize Spotify", action: spotify.deauthorize)
+                    .foregroundColor(.red)
+            } else {
+                Button("Authorize Spotify", action: authorize)
+            }
         }
+            .padding(EdgeInsets(top: 0, leading: 0, bottom: 16, trailing: 0))
+        
+        VStack {
+            Toggle("Add duplicates", isOn: $spotify.addDuplicates)
+            Text("Add songs to playlists even if they already exist in that playlist.")
+                .foregroundColor(.secondary)
+                .italic()
+        }
+            .padding(16)
+            .background {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(.quaternary)
+            }
         
         Button(
             self.newAliasesShowing ? "Hide playlists" : "Create new alias",
             action: { self.newAliasesShowing = !self.newAliasesShowing }
-        ).padding(EdgeInsets.init(top: 24, leading: 0, bottom: 0, trailing: 0))
+        ).padding(EdgeInsets(top: 24, leading: 0, bottom: 0, trailing: 0))
         
         if self.newAliasesShowing {
             List {
@@ -122,19 +138,18 @@ struct ContentView: View {
                     )
                         .submitLabel(.done)
                     
-                    if let playlist = spotify.playlists.first { $0.id == playlistId } {
+                    if spotify.playlists.isEmpty {
+                        Text("Loading...").foregroundColor(.gray)
+                    } else if let playlist = spotify.playlists.first { $0.id == playlistId } {
                         Text(playlist.name)
                     } else {
                         Text("Unknown").foregroundColor(.red)
                     }
                 }
             }
-            .onDelete {
-                let aliasesToDelete = $0.map { sortedAliases[$0].key }
-                deleteAliases(aliasesToDelete)
-            }
+            .onDelete { deleteAliases($0.map { sortedAliases[$0].key }) }
         }
-        .navigationTitle("Aliases")
+        .navigationBarTitle("Aliases")
     }
 }
 

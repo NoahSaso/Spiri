@@ -195,6 +195,20 @@
 						<key>INIntentResponseCodeName</key>
 						<string>failureAuth</string>
 					</dict>
+					<dict>
+						<key>INIntentResponseCodeConciseFormatString</key>
+						<string>${song} already exists in ${playlist}.</string>
+						<key>INIntentResponseCodeConciseFormatStringID</key>
+						<string>leslo9</string>
+						<key>INIntentResponseCodeFormatString</key>
+						<string>${song} already exists in ${playlist}.</string>
+						<key>INIntentResponseCodeFormatStringID</key>
+						<string>qY6AcZ</string>
+						<key>INIntentResponseCodeName</key>
+						<string>duplicate</string>
+						<key>INIntentResponseCodeSuccess</key>
+						<true/>
+					</dict>
 				</array>
 				<key>INIntentResponseLastParameterTag</key>
 				<integer>3</integer>

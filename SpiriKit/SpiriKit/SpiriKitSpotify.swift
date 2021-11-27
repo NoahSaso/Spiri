@@ -20,6 +20,9 @@ import SpotifyWebAPI
  and save them to persistent storage in the keychain.
  */
 public class SpiriKitSpotify: ObservableObject {
+    /// The app ID domain to use for the keychain and UserDefaults.
+    static let domain = "com.noahsaso.spiri"
+    
     /// The key in the keychain that is used to store the authorization
     /// information: "authorizationManager".
     static let authorizationManagerKey = "authorizationManager"
@@ -29,6 +32,9 @@ public class SpiriKitSpotify: ObservableObject {
     
     /// The key in the keychain that is used to store the aliases: "aliases".
     static let aliasesKey = "aliases"
+    
+    /// The key in the UserDefaults that is used to store addDuplicates: "addDuplicates".
+    static let addDuplicatesKey = "addDuplicates"
     
     /// The URL that Spotify will redirect to after the user either authorizes
     /// or denies authorization for your application.
@@ -47,7 +53,7 @@ public class SpiriKitSpotify: ObservableObject {
     ]
     
     /// The keychain to store the authorization information in.
-    private let keychain = Keychain(service: "com.noahsaso.spiri")
+    private let keychain = Keychain(service: SpiriKitSpotify.domain)
     
     /// A cryptographically-secure random string used to ensure than an incoming
     /// redirect from Spotify was the result of a request made by this app, and
@@ -57,6 +63,11 @@ public class SpiriKitSpotify: ObservableObject {
     
     private let codeVerifier = String.randomURLSafe(length: 128)
     private let codeChallenge: String
+    
+    /**
+     Shared UserDefaults instance for the app and extensions.
+     */
+    private let userDefaults = UserDefaults(suiteName: "group.\(SpiriKitSpotify.domain)")!
     
     /**
      Whether or not the application has been authorized. If `true`, then you can
@@ -80,6 +91,18 @@ public class SpiriKitSpotify: ObservableObject {
      */
     @Published public private(set) var playlists = [Playlist<PlaylistItemsReference>]()
     
+    /**
+     Whether or not to add a song to a playlist if it already exists.
+     
+     Defaults to false, stored in UserDefaults.
+     */
+    @Published public var addDuplicates: Bool {
+        didSet {
+            // Save value in UserDefaults
+            self.userDefaults.set(self.addDuplicates, forKey: Self.addDuplicatesKey)
+        }
+    }
+    
     /// An instance of `SpotifyAPI` that you use to make requests to the Spotify
     /// web API.
     public var api: SpotifyAPI<AuthorizationCodeFlowPKCEManager>?
@@ -91,6 +114,8 @@ public class SpiriKitSpotify: ObservableObject {
      */
     public init() {
         self.codeChallenge = String.makeCodeChallenge(codeVerifier: self.codeVerifier)
+        // nil defaults to false
+        self.addDuplicates = self.userDefaults.bool(forKey: Self.addDuplicatesKey)
 
         do {
             // Check to see if the client ID is saved in the keychain
@@ -406,6 +431,35 @@ public class SpiriKitSpotify: ObservableObject {
             })
             .store(in: &cancellables)
     }
+    
+    /**
+     Loads playlists from the API, stores them in an instance variable, and returns them.
+     */
+    public func addToPlaylist(itemUri: String, playlistUri: String, success: (() -> Void)? = nil, failure: ((Error) -> Void)? = nil) {
+        guard
+            self.isAuthorized,
+            let api = self.api
+        else {
+            return
+        }
+        
+        let item = SpiriKitURIContainer(uri: itemUri)
+        let playlist = SpiriKitURIContainer(uri: playlistUri)
+        
+        api.addToPlaylist(playlist, uris: [item])
+            .sink(receiveCompletion: { value in
+                switch value {
+                case .finished: print("add to playlist completed")
+                case .failure(let error):
+                    print("add to playlist failure: \(error)")
+                    failure?(error)
+                }
+            }, receiveValue: { snapshotId in
+                print("added! item: \(itemUri), playlist: \(playlistUri), snapshot ID: \(snapshotId)")
+                success?()
+            })
+            .store(in: &cancellables)
+    }
 }
 
 
@@ -447,5 +501,12 @@ public class SpiriKitSpotify_Previews: SpiriKitSpotify {
     override public func fetchPlaylists(success: (([Playlist<PlaylistItemsReference>]) -> Void)? = nil, failure: ((Error) -> Void)? = nil) {
         print("fetchPlaylists")
         success?(self.playlists)
+    }
+}
+
+public class SpiriKitURIContainer: SpotifyURIConvertible {
+    public let uri: String
+    public init(uri: String) {
+        self.uri = uri
     }
 }
