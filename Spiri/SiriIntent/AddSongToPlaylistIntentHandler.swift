@@ -141,7 +141,11 @@ class AddSongToPlaylistIntentHandler: NSObject, AddSongToPlaylistIntentHandling 
                 }
 
                 // if found great result, use it
-                if let winner = searchResults.first(where: { $0.score < 0.1 }) {
+                if let winner = searchResults.first(where: {
+                    $0.score < 0.25 &&
+                    // if match covers at least 80% of real name
+                    $0.ranges.reduce(0, { $0 + $1.count }) > Int(Double(allNames[$0.index].count) * 0.8)
+                }) {
                     let name = allNames[winner.index]
                     let p = self.getPlaylistForName(name, playlists: playlists, aliases: aliases)
 
