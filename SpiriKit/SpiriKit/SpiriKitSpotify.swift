@@ -11,6 +11,11 @@ import UIKit
 import KeychainAccess
 import SpotifyWebAPI
 
+enum SpiriError: Error {
+    // Throw when an invalid item is passed.
+    case invalidItem
+}
+
 // https://github.com/Peter-Schorn/SpotifyAPI/wiki/Saving-authorization-information-to-persistent-storage.
 /**
  A helper class that wraps around an instance of `SpotifyAPI` and provides
@@ -50,6 +55,7 @@ public class SpiriKitSpotify: ObservableObject {
         .playlistReadCollaborative,
         .userReadPlaybackState,
         .userReadCurrentlyPlaying,
+        .userLibraryModify
     ]
     
     /// The keychain to store the authorization information in.
@@ -459,6 +465,56 @@ public class SpiriKitSpotify: ObservableObject {
                 success?()
             })
             .store(in: &cancellables)
+    }
+
+    /**
+     Loads playlists from the API, stores them in an instance variable, and returns them.
+     */
+    public func saveToLibrary(item: PlaylistItem, success: (() -> Void)? = nil, failure: ((Error) -> Void)? = nil) {
+        guard
+            self.isAuthorized,
+            let api = self.api
+        else {
+            return
+        }
+
+        guard let itemUri = item.uri
+        else {
+            failure?(SpiriError.invalidItem)
+            return
+        }
+
+        if item.type == IDCategory.track {
+            api.saveTracksForCurrentUser([itemUri])
+                .sink(receiveCompletion: { value in
+                    switch value {
+                    case .finished: print("track save to library completed")
+                    case .failure(let error):
+                        print("track save to library failure: \(error)")
+                        failure?(error)
+                    }
+                }, receiveValue: { snapshotId in
+                    print("saved! track: \(itemUri), snapshot ID: \(snapshotId)")
+                    success?()
+                })
+                .store(in: &cancellables)
+        } else if item.type == IDCategory.episode {
+            api.saveEpisodesForCurrentUser([itemUri])
+                .sink(receiveCompletion: { value in
+                    switch value {
+                    case .finished: print("episode save to library completed")
+                    case .failure(let error):
+                        print("episode save to library failure: \(error)")
+                        failure?(error)
+                    }
+                }, receiveValue: { snapshotId in
+                    print("saved! episode: \(itemUri), snapshot ID: \(snapshotId)")
+                    success?()
+                })
+                .store(in: &cancellables)
+        } else {
+            failure?(SpiriError.invalidItem)
+        }
     }
 }
 

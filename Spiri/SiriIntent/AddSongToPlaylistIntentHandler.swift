@@ -72,15 +72,26 @@ class AddSongToPlaylistIntentHandler: NSObject, AddSongToPlaylistIntentHandling 
                 else {
                     return completion(AddSongToPlaylistIntentResponse(code: .failureSong, userActivity: nil))
                 }
-                
+
                 func add() {
-                    print("adding song")
+                    let failure = { (error: Error) in
+                        completion(AddSongToPlaylistIntentResponse.failure(failureMessage: error.localizedDescription))
+                    }
+                    print("adding to playlist")
                     self.spotify
                         .addToPlaylist(
                             itemUri: itemUri,
                             playlistUri: playlistUri,
-                            success: { completion(AddSongToPlaylistIntentResponse.success(song: item.name, playlist: playlist.displayString)) },
-                            failure: { completion(AddSongToPlaylistIntentResponse.failure(failureMessage: $0.localizedDescription)) }
+                            success: {
+                                print("saving to library")
+                                self.spotify
+                                    .saveToLibrary(
+                                        item: item,
+                                        success: { completion(AddSongToPlaylistIntentResponse.success(song: item.name, playlist: playlist.displayString)) },
+                                        failure: failure
+                                    )
+                            },
+                            failure: failure
                         )
                 }
                 
