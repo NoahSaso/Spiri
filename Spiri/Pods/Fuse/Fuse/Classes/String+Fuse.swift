@@ -36,7 +36,7 @@ extension String {
         }
 
         let start: String.Index = self.index(self.startIndex, offsetBy: position)
-        let range: Range<Index> = Range<Index>.init(uncheckedBounds: (lower: start, upper: self.endIndex))
+        let range = Range<Index>.init(uncheckedBounds: (lower: start, upper: self.endIndex))
         return self.range(of: aString, options: .literal, range: range, locale: nil)?.lowerBound
     }
 
@@ -54,7 +54,7 @@ extension String {
         let len = self.count
         let start = min(max(position, 0), len)
         let searchLen = searchStr.count
-        let r: Range<Index> = Range<Index>.init(uncheckedBounds: (lower: self.startIndex, upper: self.index(self.startIndex, offsetBy: min(start + searchLen, len))))
+        let r = Range<Index>.init(uncheckedBounds: (lower: self.startIndex, upper: self.index(self.startIndex, offsetBy: min(start + searchLen, len))))
         if let range = self.range(of: searchStr, options: [.backwards, .literal], range: r) {
             return range.lowerBound
         } else {

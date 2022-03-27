@@ -12,11 +12,11 @@ public struct FuseProperty {
     let name: String
     let weight: Double
     
-    public init (name: String) {
+    public init(name: String) {
         self.init(name: name, weight: 1)
     }
     
-    public init (name: String, weight: Double) {
+    public init(name: String, weight: Double) {
         self.name = name
         self.weight = weight
     }
@@ -48,10 +48,10 @@ public class Fuse {
         )]
     )
     
-    fileprivate lazy var searchQueue: DispatchQueue = { [unowned self] in
+    private lazy var searchQueue: DispatchQueue = { [unowned self] in
         let label = "fuse.search.queue"
         return DispatchQueue(label: label, attributes: .concurrent)
-        }()
+    }()
     
     /// Creates a new instance of `Fuse`
     ///
@@ -62,7 +62,7 @@ public class Fuse {
     ///   - maxPatternLength: The maximum valid pattern length. The longer the pattern, the more intensive the search operation will be. If the pattern exceeds the `maxPatternLength`, the `search` operation will return `nil`. Why is this important? [Read this](https://en.wikipedia.org/wiki/Word_(computer_architecture)#Word_size_choice). Defaults to `32`
     ///   - isCaseSensitive: Indicates whether comparisons should be case sensitive. Defaults to `false`
     ///   - tokenize: When true, the search algorithm will search individual words **and** the full string, computing the final score as a function of both. Note that when `tokenize` is `true`, the `threshold`, `distance`, and `location` are inconsequential for individual tokens.
-    public init (location: Int = 0, distance: Int = 100, threshold: Double = 0.6, maxPatternLength: Int = 32, isCaseSensitive: Bool = false, tokenize: Bool = false) {
+    public init(location: Int = 0, distance: Int = 100, threshold: Double = 0.6, maxPatternLength: Int = 32, isCaseSensitive: Bool = false, tokenize: Bool = false) {
         self.location = location
         self.distance = distance
         self.threshold = threshold
@@ -75,7 +75,7 @@ public class Fuse {
     ///
     /// - Parameter aString: A string from which to create the pattern tuple
     /// - Returns: A tuple containing pattern metadata
-    public func createPattern (from aString: String) -> Pattern? {
+    public func createPattern(from aString: String) -> Pattern? {
         let pattern = self.isCaseSensitive ? aString : aString.lowercased()
         let len = pattern.count
         
@@ -106,32 +106,31 @@ public class Fuse {
             return nil
         }
         
-        //If tokenize is set we will split the pattern into individual words and take the average which should result in more accurate matches
-        if tokenize {
-            //Split this pattern by the space character
+        // If tokenize is set we will split the pattern into individual words and take the average which should result in more accurate matches
+        if self.tokenize {
+            // Split this pattern by the space character
             let wordPatterns = pattern.text.split(separator: " ").compactMap { createPattern(from: String($0)) }
             
-            //Get the result for testing the full pattern string. If 2 strings have equal individual word matches this will boost the full string that matches best overall to the top
-            let fullPatternResult = _search(pattern, in: aString)
+            // Get the result for testing the full pattern string. If 2 strings have equal individual word matches this will boost the full string that matches best overall to the top
+            let fullPatternResult = self._search(pattern, in: aString)
             
-            //Reduce all the word pattern matches and the full pattern match into a totals tuple
-            let results = wordPatterns.reduce(into: fullPatternResult) { (totalResult, pattern) in
+            // Reduce all the word pattern matches and the full pattern match into a totals tuple
+            let results = wordPatterns.reduce(into: fullPatternResult) { totalResult, pattern in
                 let result = _search(pattern, in: aString)
                 totalResult = (totalResult.score + result.score, totalResult.ranges + result.ranges)
             }
             
-            //Average the total score by dividing the summed scores by the number of word searches + the full string search. Also remove any range duplicates since we are searching full string and words individually.
-            let averagedResult = (score: results.score / Double(wordPatterns.count + 1), ranges: Array<CountableClosedRange<Int>>(Set<CountableClosedRange<Int>>(results.ranges)))
+            // Average the total score by dividing the summed scores by the number of word searches + the full string search. Also remove any range duplicates since we are searching full string and words individually.
+            let averagedResult = (score: results.score / Double(wordPatterns.count + 1), ranges: [CountableClosedRange<Int>](Set<CountableClosedRange<Int>>(results.ranges)))
             
-            //If the averaged score is 1 then there were no matches so return nil. Otherwise return the average result
+            // If the averaged score is 1 then there were no matches so return nil. Otherwise return the average result
             return averagedResult.score == 1 ? nil : averagedResult
             
         } else {
-            let result = _search(pattern, in: aString)
+            let result = self._search(pattern, in: aString)
 
-            //If the averaged score is 1 then there were no matches so return nil. Otherwise return the average result
+            // If the averaged score is 1 then there were no matches so return nil. Otherwise return the average result
             return result.score == 1 ? nil : result
-            
         }
     }
     
@@ -144,7 +143,6 @@ public class Fuse {
     ///   - aString: The string in which to search for the pattern
     /// - Returns: A tuple containing a `score` between `0.0` (exact match) and `1` (not a match), and `ranges` of the matched characters. If no match is found will return a tuple with score of 1 and empty array of ranges.
     private func _search(_ pattern: Pattern, in aString: String) -> (score: Double, ranges: [CountableClosedRange<Int>]) {
-        
         var text = aString
         
         if !self.isCaseSensitive {
@@ -154,7 +152,7 @@ public class Fuse {
         let textLength = text.count
         
         // Exact match
-        if (pattern.text == text) {
+        if pattern.text == text {
             return (0, [0...textLength - 1])
         }
         
@@ -174,7 +172,7 @@ public class Fuse {
         
         // Get all exact matches, here for speed up
         var index = text.index(of: pattern.text, startingFrom: bestLocation)
-        while (index != nil) {
+        while index != nil {
             let i = text.distance(from: text.startIndex, to: index!)
             let score = FuseUtilities.calculateScore(pattern.len,
                                                      e: 0,
@@ -186,9 +184,9 @@ public class Fuse {
             index = text.index(of: pattern.text, startingFrom: bestLocation)
             
             var idx = 0
-            while (idx < pattern.len) {
-              matchMaskArr[i + idx] = 1
-              idx += 1
+            while idx < pattern.len {
+                matchMaskArr[i + idx] = 1
+                idx += 1
             }
         }
         
@@ -203,7 +201,6 @@ public class Fuse {
         
         // Magic begins now
         for i in 0..<pattern.len {
-            
             // Scan for the best match; each iteration allows for one more error.
             // Run a binary search to determine how far from the match location we can stray at this error level.
             var binMin = 0
@@ -231,7 +228,7 @@ public class Fuse {
                 continue
             }
             
-            var currentLocationIndex: String.Index? = nil
+            var currentLocationIndex: String.Index?
 
             for j in (start...finish).reversed() {
                 let currentLocation = j - 1
@@ -239,7 +236,7 @@ public class Fuse {
                 // Need to check for `nil` case, since `patternAlphabet` is a sparse hash
                 let charMatch: Int = {
                     if currentLocation < textCount {
-                        currentLocationIndex = currentLocationIndex.map{text.index(before: $0)} ?? text.index(text.startIndex, offsetBy: currentLocation)
+                        currentLocationIndex = currentLocationIndex.map { text.index(before: $0) } ?? text.index(text.startIndex, offsetBy: currentLocation)
                         let char = text[currentLocationIndex!]
                         if let result = pattern.alphabet[char] {
                             return result
@@ -274,7 +271,7 @@ public class Fuse {
                             break
                         }
                         
-                        if bestLocation > location  {
+                        if bestLocation > location {
                             // When passing `bestLocation`, don't exceed our current distance from the expected `location`.
                             start = max(1, 2 * location - bestLocation)
                         } else {
@@ -297,7 +294,7 @@ public class Fuse {
     }
 }
 
-extension Fuse {
+public extension Fuse {
     /// Searches for a text pattern in a given string.
     ///
     ///     let fuse = Fuse()
@@ -315,8 +312,8 @@ extension Fuse {
     ///   - text: the text string to search for.
     ///   - aString: The string in which to search for the pattern
     /// - Returns: A tuple containing a `score` between `0.0` (exact match) and `1` (not a match), and `ranges` of the matched characters.
-    public func search(_ text: String, in aString: String) -> (score: Double, ranges: [CountableClosedRange<Int>])? {
-        return self.search(self.createPattern(from: text), in: aString)
+    func search(_ text: String, in aString: String) -> (score: Double, ranges: [CountableClosedRange<Int>])? {
+        self.search(self.createPattern(from: text), in: aString)
     }
     
     /// Searches for a text pattern in an array of srings
@@ -325,7 +322,7 @@ extension Fuse {
     ///   - text: The pattern string to search for
     ///   - aList: The list of string in which to search
     /// - Returns: A tuple containing the `item` in which the match is found, the `score`, and the `ranges` of the matched characters
-    public func search(_ text: String, in aList: [String]) -> [SearchResult] {
+    func search(_ text: String, in aList: [String]) -> [SearchResult] {
         let pattern = self.createPattern(from: text)
         
         var items = [SearchResult]()
@@ -346,7 +343,7 @@ extension Fuse {
     ///   - aList: The list of string in which to search
     ///   - chunkSize: The size of a single chunk of the array. For example, if the array has `1000` items, it may be useful to split the work into 10 chunks of 100. This should ideally speed up the search logic. Defaults to `100`.
     ///   - completion: The handler which is executed upon completion
-    public func search(_ text: String, in aList: [String], chunkSize: Int = 100, completion: @escaping ([SearchResult]) -> Void) {
+    func search(_ text: String, in aList: [String], chunkSize: Int = 100, completion: @escaping ([SearchResult]) -> Void) {
         let pattern = self.createPattern(from: text)
         
         var items = [SearchResult]()
@@ -422,7 +419,7 @@ extension Fuse {
     ///   - text: The pattern string to search for
     ///   - aList: The list of `Fuseable` objects in which to search
     /// - Returns: A list of `CollectionResult` objects
-    public func search(_ text: String, in aList: [Fuseable]) -> [FusableSearchResult] {
+    func search(_ text: String, in aList: [Fuseable]) -> [FusableSearchResult] {
         let pattern = self.createPattern(from: text)
         
         var collectionResult = [FusableSearchResult]()
@@ -456,7 +453,6 @@ extension Fuse {
                 score: totalScore / Double(scores.count),
                 results: propertyResults
             ))
-            
         }
         
         return collectionResult.sorted { $0.score < $1.score }
@@ -499,7 +495,7 @@ extension Fuse {
     ///   - aList: The list of `Fuseable` objects in which to search
     ///   - chunkSize: The size of a single chunk of the array. For example, if the array has `1000` items, it may be useful to split the work into 10 chunks of 100. This should ideally speed up the search logic. Defaults to `100`.
     ///   - completion: The handler which is executed upon completion
-    public func search(_ text: String, in aList: [Fuseable], chunkSize: Int = 100, completion: @escaping ([FusableSearchResult]) -> Void) {
+    func search(_ text: String, in aList: [Fuseable], chunkSize: Int = 100, completion: @escaping ([FusableSearchResult]) -> Void) {
         let pattern = self.createPattern(from: text)
         
         let group = DispatchGroup()
@@ -571,6 +567,6 @@ extension Fuse {
 #if swift(>=4.2)
 #else
 extension CountableClosedRange: Hashable where Element: Hashable {
-    public var hashValue: Int { return String(describing: self).hashValue }
+    public var hashValue: Int { String(describing: self).hashValue }
 }
 #endif

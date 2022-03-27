@@ -5,11 +5,10 @@
 //  Created by Noah Saso on 11/21/21.
 //
 
-import XCTest
 @testable import Spiri
+import XCTest
 
 class SpiriTests: XCTestCase {
-
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.
     }
@@ -29,5 +28,4 @@ class SpiriTests: XCTestCase {
             // Put the code you want to measure the time of here.
         }
     }
-
 }

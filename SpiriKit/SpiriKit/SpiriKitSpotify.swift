@@ -5,11 +5,11 @@
 //  Created on 11/21/21.
 //
 
-import Foundation
 import Combine
-import UIKit
+import Foundation
 import KeychainAccess
 import SpotifyWebAPI
+import UIKit
 
 enum SpiriError: Error {
     // Throw when an invalid item is passed.
@@ -145,7 +145,7 @@ public class SpiriKitSpotify: ObservableObject {
         
         // If API already set up, cancel existing subscribers.
         if self.api != nil {
-            cancellables.removeAll()
+            self.cancellables.removeAll()
             self.isAuthorized = false
         }
 
@@ -156,18 +156,20 @@ public class SpiriKitSpotify: ObservableObject {
         )
 
         // MARK: Important: Subscribe to `authorizationManagerDidChange` BEFORE
+
         // MARK: retrieving `authorizationManager` from persistent storage
+
         self.api!.authorizationManagerDidChange
             // We must receive on the main thread because we are updating the
             // @Published `isAuthorized` property.
             .receive(on: RunLoop.main)
-            .sink(receiveValue: authorizationManagerDidChange)
-            .store(in: &cancellables)
+            .sink(receiveValue: self.authorizationManagerDidChange)
+            .store(in: &self.cancellables)
         
         self.api!.authorizationManagerDidDeauthorize
             .receive(on: RunLoop.main)
-            .sink(receiveValue: authorizationManagerDidDeauthorize)
-            .store(in: &cancellables)
+            .sink(receiveValue: self.authorizationManagerDidDeauthorize)
+            .store(in: &self.cancellables)
         
         // Check to see if the authorization information is saved in the
         // keychain.
@@ -202,8 +204,7 @@ public class SpiriKitSpotify: ObservableObject {
             } catch {
                 print("could not decode authorizationManager from data:\n\(error)")
             }
-        }
-        else {
+        } else {
             print("did not find authorization manager in keychain")
         }
     }
@@ -219,13 +220,13 @@ public class SpiriKitSpotify: ObservableObject {
      Attempt to load client ID from the keychain.
      */
     public func loadClientId() -> String? {
-        return self.keychain[Self.clientIdKey]
+        self.keychain[Self.clientIdKey]
     }
     
     /**
      Save aliases to the keychain.
      */
-    public func saveAliases(_ aliases: [String:String]) -> Bool {
+    public func saveAliases(_ aliases: [String: String]) -> Bool {
         do {
             let json = try JSONSerialization.data(withJSONObject: aliases, options: [])
             self.keychain[data: Self.aliasesKey] = json
@@ -240,21 +241,21 @@ public class SpiriKitSpotify: ObservableObject {
     /**
      Load aliases dictionary from the keychain.
      */
-    public func loadAliases() -> [String:String] {
+    public func loadAliases() -> [String: String] {
         guard let aliasesData = self.keychain[data: Self.aliasesKey] else {
-            return [String:String]()
+            return [String: String]()
         }
         
         do {
             let json = try JSONSerialization.jsonObject(with: aliasesData, options: .mutableContainers)
-            if let aliases = json as? [String:String] {
+            if let aliases = json as? [String: String] {
                 return aliases
             }
         } catch {
             print("failed to deserialize aliases data")
         }
 
-        return [String:String]()
+        return [String: String]()
     }
     
     /**
@@ -320,18 +321,17 @@ public class SpiriKitSpotify: ObservableObject {
         )
         .sink(receiveCompletion: { completion in
             switch completion {
-                case .finished:
-                    print("successfully authorized")
-                case .failure(let error):
-                    if let authError = error as? SpotifyAuthorizationError, authError.accessWasDenied {
-                        print("The user denied the authorization request")
-                    }
-                    else {
-                        print("couldn't authorize application: \(error)")
-                    }
+            case .finished:
+                print("successfully authorized")
+            case .failure(let error):
+                if let authError = error as? SpotifyAuthorizationError, authError.accessWasDenied {
+                    print("The user denied the authorization request")
+                } else {
+                    print("couldn't authorize application: \(error)")
+                }
             }
         })
-        .store(in: &cancellables)
+        .store(in: &self.cancellables)
     }
     
     /**
@@ -363,7 +363,7 @@ public class SpiriKitSpotify: ObservableObject {
         } catch {
             print(
                 "couldn't encode authorizationManager for storage in the " +
-                "keychain:\n\(error)"
+                    "keychain:\n\(error)"
             )
         }
         
@@ -430,12 +430,12 @@ public class SpiriKitSpotify: ObservableObject {
                 
                 self.playlists.sort {
                     $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-                    < $1.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                        < $1.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
                 }
 
                 success?(self.playlists)
             })
-            .store(in: &cancellables)
+            .store(in: &self.cancellables)
     }
     
     /**
@@ -464,7 +464,7 @@ public class SpiriKitSpotify: ObservableObject {
                 print("added! item: \(itemUri), playlist: \(playlistUri), snapshot ID: \(snapshotId)")
                 success?()
             })
-            .store(in: &cancellables)
+            .store(in: &self.cancellables)
     }
 
     /**
@@ -497,7 +497,7 @@ public class SpiriKitSpotify: ObservableObject {
                     print("saved! track: \(itemUri), snapshot ID: \(snapshotId)")
                     success?()
                 })
-                .store(in: &cancellables)
+                .store(in: &self.cancellables)
         } else if item.type == IDCategory.episode {
             api.saveEpisodesForCurrentUser([itemUri])
                 .sink(receiveCompletion: { value in
@@ -511,13 +511,12 @@ public class SpiriKitSpotify: ObservableObject {
                     print("saved! episode: \(itemUri), snapshot ID: \(snapshotId)")
                     success?()
                 })
-                .store(in: &cancellables)
+                .store(in: &self.cancellables)
         } else {
             failure?(SpiriError.invalidItem)
         }
     }
 }
-
 
 /**
  Preview class with functions stubbed for use in SwiftUI Previews.
@@ -532,14 +531,14 @@ public class SpiriKitSpotify_Previews: SpiriKitSpotify {
         return nil
     }
 
-    override public func saveAliases(_ aliases: [String:String]) -> Bool {
+    override public func saveAliases(_ aliases: [String: String]) -> Bool {
         print("saveAliases", aliases)
         return true
     }
 
-    override public func loadAliases() -> [String:String] {
+    override public func loadAliases() -> [String: String] {
         print("loadAliases")
-        return [String:String]()
+        return [String: String]()
     }
     
     override public func authorize() {

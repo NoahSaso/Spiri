@@ -5,14 +5,14 @@
 //  Created by Noah Saso on 11/21/21.
 //
 
-import SwiftUI
 import SpiriKit
+import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var spotify: SpiriKitSpotify
 
     @State var clientId = ""
-    @State var aliases: [String:String]
+    @State var aliases: [String: String]
 
     @State private var clientIdInvalidShowing = false
     @State private var newAliasesShowing = false
@@ -22,19 +22,19 @@ struct ContentView: View {
     
     func authorize() {
         if self.clientId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            clientIdInvalidShowing = true
+            self.clientIdInvalidShowing = true
             return
         }
 
-        spotify.authorize()
+        self.spotify.authorize()
     }
     
     /**
      Save alias to the keychain.
      */
     func setAlias(alias: String, playlistId: String) {
-        aliases[alias] = playlistId
-        let _ = spotify.saveAliases(aliases)
+        self.aliases[alias] = playlistId
+        _ = self.spotify.saveAliases(self.aliases)
     }
     
     /**
@@ -42,16 +42,16 @@ struct ContentView: View {
      */
     func deleteAliases(_ aliasesToDelete: [String]) {
         aliasesToDelete.forEach { self.aliases.removeValue(forKey: $0) }
-        let _ = spotify.saveAliases(aliases)
+        _ = self.spotify.saveAliases(self.aliases)
     }
     
     /**
      Update alias on the keychain.
      */
     func updateAlias(alias: String, newAlias: String, newPlaylistId: String) {
-        aliases.removeValue(forKey: alias)
-        aliases[newAlias] = newPlaylistId
-        let _ = spotify.saveAliases(aliases)
+        self.aliases.removeValue(forKey: alias)
+        self.aliases[newAlias] = newPlaylistId
+        _ = self.spotify.saveAliases(self.aliases)
     }
 
     var body: some View {
@@ -84,7 +84,7 @@ struct ContentView: View {
                 Button("Authorize Spotify", action: authorize)
             }
         }
-            .padding(EdgeInsets(top: 0, leading: 0, bottom: 16, trailing: 0))
+        .padding(EdgeInsets(top: 0, leading: 0, bottom: 16, trailing: 0))
         
         VStack {
             Toggle("Add duplicates", isOn: $spotify.addDuplicates)
@@ -92,11 +92,11 @@ struct ContentView: View {
                 .foregroundColor(.secondary)
                 .italic()
         }
-            .padding(16)
-            .background {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(.quaternary)
-            }
+        .padding(16)
+        .background {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(.quaternary)
+        }
         
         Button(
             self.newAliasesShowing ? "Hide playlists" : "Create new alias",
@@ -136,7 +136,7 @@ struct ContentView: View {
                             }
                         }
                     )
-                        .submitLabel(.done)
+                    .submitLabel(.done)
                     
                     if spotify.playlists.isEmpty {
                         Text("Loading...").foregroundColor(.gray)
@@ -155,7 +155,7 @@ struct ContentView: View {
 
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
-        ContentView(clientId: "abc123", aliases: [String:String]())
+        ContentView(clientId: "abc123", aliases: [String: String]())
             .environmentObject(SpiriKitSpotify_Previews())
     }
 }

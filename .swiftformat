@@ -1,0 +1,13 @@
+--binarygrouping none
+--commas inline
+--decimalgrouping none
+--hexgrouping none
+--ifdef no-indent
+--nospaceoperators ...,..<
+--octalgrouping none
+--patternlet inline
+--self insert
+--semicolons never
+--stripunusedargs unnamed-only
+--trimwhitespace nonblank-lines
+--wrapcollections before-first

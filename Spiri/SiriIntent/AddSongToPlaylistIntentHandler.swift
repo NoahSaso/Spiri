@@ -5,11 +5,11 @@
 //  Created by Noah Saso on 11/21/21.
 //
 
+import Combine
 import Foundation
+import Fuse
 import Intents
 import SpiriKit
-import Combine
-import Fuse
 import SpotifyWebAPI
 
 class AddSongToPlaylistIntentHandler: NSObject, AddSongToPlaylistIntentHandling {
@@ -21,7 +21,7 @@ class AddSongToPlaylistIntentHandler: NSObject, AddSongToPlaylistIntentHandling 
     /**
      Try to find a Playlist from the API matching the given name in the list of playlists from the API and the alias dictionary and create a parameter value for the Playlist.
      */
-    func getPlaylistForName(_ name: String, playlists: [SpotifyWebAPI.Playlist<PlaylistItemsReference>], aliases: [String:String]) -> Playlist? {
+    func getPlaylistForName(_ name: String, playlists: [SpotifyWebAPI.Playlist<PlaylistItemsReference>], aliases: [String: String]) -> Playlist? {
         var p = playlists.first { $0.name == name }
         if p == nil {
             let id = aliases.first { $0.key == name }?.value
@@ -44,7 +44,7 @@ class AddSongToPlaylistIntentHandler: NSObject, AddSongToPlaylistIntentHandling 
         print("handle time")
 
         guard
-            spotify.isAuthorized,
+            self.spotify.isAuthorized,
             let api = spotify.api,
             let playlist = intent.playlist,
             playlist.identifier != nil,
@@ -123,13 +123,13 @@ class AddSongToPlaylistIntentHandler: NSObject, AddSongToPlaylistIntentHandling 
                     add()
                 }
             })
-            .store(in: &cancellables)
+            .store(in: &self.cancellables)
     }
     
     func resolvePlaylist(for intent: AddSongToPlaylistIntent, with completion: @escaping (PlaylistResolutionResult) -> Void) {
         print("resolving playlist")
 
-        if !spotify.isAuthorized {
+        if !self.spotify.isAuthorized {
             print("spotify unauthorized")
             return completion(PlaylistResolutionResult.success(with: Playlist(identifier: nil, display: "Unauthorized")))
         }
@@ -138,12 +138,12 @@ class AddSongToPlaylistIntentHandler: NSObject, AddSongToPlaylistIntentHandling 
             return completion(PlaylistResolutionResult.needsValue())
         }
         
-        spotify.fetchPlaylists(
+        self.spotify.fetchPlaylists(
             success: { playlists in
                 let aliases = self.spotify.loadAliases()
 
                 // include aliases in matchable items
-                let allNames = playlists.map { $0.name } + aliases.map { $0.key }
+                let allNames = playlists.map(\.name) + aliases.map(\.key)
 
                 let searchResults = self.fuse.search(playlistSearch.spokenPhrase, in: allNames)
 
@@ -154,8 +154,8 @@ class AddSongToPlaylistIntentHandler: NSObject, AddSongToPlaylistIntentHandling 
                 // if found great result, use it
                 if let winner = searchResults.first(where: {
                     $0.score < 0.25 &&
-                    // if match covers at least 80% of real name
-                    $0.ranges.reduce(0, { $0 + $1.count }) > Int(Double(allNames[$0.index].count) * 0.8)
+                        // if match covers at least 80% of real name
+                        $0.ranges.reduce(0) { $0 + $1.count } > Int(Double(allNames[$0.index].count) * 0.8)
                 }) {
                     let name = allNames[winner.index]
                     let p = self.getPlaylistForName(name, playlists: playlists, aliases: aliases)
@@ -182,19 +182,19 @@ class AddSongToPlaylistIntentHandler: NSObject, AddSongToPlaylistIntentHandling 
     func providePlaylistOptionsCollection(for intent: AddSongToPlaylistIntent, searchTerm: String?, with completion: @escaping (INObjectCollection<Playlist>?, Error?) -> Void) {
         print("providing playlist options")
         
-        if !spotify.isAuthorized {
+        if !self.spotify.isAuthorized {
             print("spotify unauthorized")
             return completion(nil, nil)
         }
         
-        spotify.fetchPlaylists(
+        self.spotify.fetchPlaylists(
             success: { playlists in
                 let aliases = self.spotify.loadAliases()
 
                 var playlistResults: [Playlist] = []
                 if let playlistSearch = searchTerm {
                     // include aliases in matchable items
-                    let allNames = playlists.map { $0.name } + aliases.map { $0.key }
+                    let allNames = playlists.map(\.name) + aliases.map(\.key)
 
                     let searchResults = self.fuse.search(playlistSearch, in: allNames)
                     if !searchResults.isEmpty {
@@ -220,10 +220,11 @@ class AddSongToPlaylistIntentHandler: NSObject, AddSongToPlaylistIntentHandling 
                         }.filter { $0 != nil }.map { $0! }
                 }
                 
-                completion(INObjectCollection(items: playlistResults.sorted { $0.displayString.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() < $1.displayString.trimmingCharacters(in: .whitespacesAndNewlines)      .lowercased() }), nil)
+                completion(INObjectCollection(items: playlistResults.sorted { $0.displayString.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() < $1.displayString.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }), nil)
             }, failure: { error in
                 print("provide current playlists failure: \(error)")
                 completion(nil, error)
-            })
+            }
+        )
     }
 }

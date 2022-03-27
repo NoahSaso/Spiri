@@ -8,7 +8,6 @@
 import XCTest
 
 class SpiriUITestsLaunchTests: XCTestCase {
-
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true
     }
